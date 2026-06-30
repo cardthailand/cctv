@@ -1,0 +1,17 @@
+services:
+  cctv:
+    build: .
+    container_name: cctv-web-client
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-3000}:3000"
+      - "9001:9001"
+      - "9002:9002"
+      - "9003:9003"
+      - "9004:9004"
+    env_file:
+      - .env
+    volumes:
+      - ./recordings:/app/recordings
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

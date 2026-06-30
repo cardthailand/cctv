@@ -56,7 +56,9 @@
             <th>Username</th>
             <th>Role</th>
             <th>Active</th>
+            <th>Channels</th>
             <th>Last Login</th>
+            <th>จัดการ</th>
           </tr>
         </thead>
         <tbody id="users-table"></tbody>
@@ -64,7 +66,14 @@
     </section>
 
     <section class="card">
-      <h2>Audit Logs (ล่าสุด)</h2>
+      <h2>Audit Logs</h2>
+      <div class="audit-filters">
+        <input id="filter-username" placeholder="username">
+        <input id="filter-action" placeholder="action เช่น login">
+        <input id="filter-from" type="date">
+        <input id="filter-to" type="date">
+        <button class="btn btn-primary" style="width:auto;" onclick="loadAuditLogs()">ค้นหา</button>
+      </div>
       <table>
         <thead>
           <tr>
@@ -81,12 +90,21 @@
 
   <script src="/js/auth.js"></script>
   <script>
+    let allChannels = [1, 2, 3, 4];
+
     async function initAdmin() {
       const user = await getCurrentUser();
       if (!user || user.role !== 'admin') {
         window.location.href = '/index.html';
         return;
       }
+
+      const configRes = await fetch('/api/admin/config/channels');
+      if (configRes.ok) {
+        const configData = await configRes.json();
+        allChannels = configData.channels || allChannels;
+      }
+
       await loadUsers();
       await loadAuditLogs();
     }
@@ -95,18 +113,113 @@
       const res = await fetch('/api/admin/users');
       const data = await res.json();
       const tbody = document.getElementById('users-table');
-      tbody.innerHTML = data.users.map((u) => `
-        <tr>
+      tbody.innerHTML = '';
+
+      for (const u of data.users) {
+        const channels = u.role === 'employee'
+          ? await fetchUserChannels(u.id)
+          : allChannels.join(',');
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
           <td>${u.username}</td>
-          <td>${u.role}</td>
-          <td>${u.isActive ? 'yes' : 'no'}</td>
+          <td>
+            <select data-user-id="${u.id}" class="role-select">
+              <option value="employee" ${u.role === 'employee' ? 'selected' : ''}>employee</option>
+              <option value="user" ${u.role === 'user' ? 'selected' : ''}>user</option>
+              <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>admin</option>
+            </select>
+          </td>
+          <td>
+            <button class="btn btn-primary" style="width:auto;padding:6px 10px;"
+              onclick="toggleActive('${u.id}', ${!u.isActive})">
+              ${u.isActive ? 'ปิดใช้งาน' : 'เปิดใช้งาน'}
+            </button>
+          </td>
+          <td>
+            <input class="channel-input" data-user-id="${u.id}" value="${channels}"
+              placeholder="1,2" style="width:80px;" ${u.role !== 'employee' ? 'disabled' : ''}>
+            <button class="btn btn-primary" style="width:auto;padding:6px 10px;"
+              onclick="saveChannels('${u.id}')" ${u.role !== 'employee' ? 'disabled' : ''}>บันทึก</button>
+          </td>
           <td>${u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('th-TH') : '-'}</td>
-        </tr>
-      `).join('');
+          <td>
+            <button class="btn btn-primary" style="width:auto;padding:6px 10px;"
+              onclick="saveRole('${u.id}')">บันทึก role</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      }
+
+      document.querySelectorAll('.role-select').forEach((select) => {
+        select.addEventListener('change', (event) => {
+          const userId = event.target.dataset.userId;
+          const isEmployee = event.target.value === 'employee';
+          const row = event.target.closest('tr');
+          row.querySelector('.channel-input').disabled = !isEmployee;
+          row.querySelector('.channel-input').nextElementSibling.disabled = !isEmployee;
+        });
+      });
+    }
+
+    async function fetchUserChannels(userId) {
+      const res = await fetch(`/api/admin/users/${userId}/channels`);
+      if (!res.ok) return '';
+      const data = await res.json();
+      return (data.channels || []).join(',');
+    }
+
+    async function saveRole(userId) {
+      const select = document.querySelector(`.role-select[data-user-id="${userId}"]`);
+      const res = await fetch(`/api/admin/users/${userId}/role`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: select.value }),
+      });
+      const data = await res.json();
+      alert(res.ok ? 'อัปเดต role สำเร็จ' : (data.error || 'อัปเดตไม่สำเร็จ'));
+      if (res.ok) await loadUsers();
+    }
+
+    async function toggleActive(userId, isActive) {
+      const res = await fetch(`/api/admin/users/${userId}/active`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive }),
+      });
+      const data = await res.json();
+      alert(res.ok ? 'อัปเดตสถานะสำเร็จ' : (data.error || 'อัปเดตไม่สำเร็จ'));
+      if (res.ok) await loadUsers();
+    }
+
+    async function saveChannels(userId) {
+      const input = document.querySelector(`.channel-input[data-user-id="${userId}"]`);
+      const channels = (input.value || '')
+        .split(',')
+        .map((v) => parseInt(v.trim(), 10))
+        .filter((v) => Number.isInteger(v));
+
+      const res = await fetch(`/api/admin/users/${userId}/channels`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channels }),
+      });
+      const data = await res.json();
+      alert(res.ok ? 'บันทึกช่องสำเร็จ' : (data.error || 'บันทึกไม่สำเร็จ'));
     }
 
     async function loadAuditLogs() {
-      const res = await fetch('/api/admin/audit-logs');
+      const params = new URLSearchParams();
+      const username = document.getElementById('filter-username').value.trim();
+      const action = document.getElementById('filter-action').value.trim();
+      const from = document.getElementById('filter-from').value;
+      const to = document.getElementById('filter-to').value;
+      if (username) params.set('username', username);
+      if (action) params.set('action', action);
+      if (from) params.set('from', from);
+      if (to) params.set('to', `${to}T23:59:59`);
+
+      const res = await fetch(`/api/admin/audit-logs?${params.toString()}`);
       const data = await res.json();
       const tbody = document.getElementById('audit-table');
       tbody.innerHTML = data.logs.map((log) => `

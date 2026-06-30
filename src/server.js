@@ -18,8 +18,10 @@ const recordingWorker = require('./services/recordingWorker');
 const streamingGateway = require('./services/streamingGateway');
 const storageCleanup = require('./services/storageCleanup');
 const recordingIndex = require('./services/recordingIndex');
+const { pool } = require('./db/pool');
 
 const app = express();
+let httpServer = null;
 
 app.set('trust proxy', 1);
 app.use(express.json());
@@ -68,19 +70,41 @@ function shutdown() {
   recordingWorker.stopRecording();
   streamingGateway.stopStreaming();
   storageCleanup.stopCleanup();
+
+  if (httpServer) {
+    httpServer.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 3000);
+    return;
+  }
   process.exit(0);
 }
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection', {
+    message: reason?.message || String(reason),
+  });
+});
+
 async function start() {
+  try {
+    await pool.query('SELECT 1');
+    logger.info('Database connection OK');
+  } catch (error) {
+    logger.error('Database connection failed — check DB_HOST and run: npm run db:migrate', {
+      message: error.message,
+    });
+    process.exit(1);
+  }
+
   recordingIndex.scanRecordings(true);
   recordingWorker.startRecording();
   streamingGateway.startStreaming();
   storageCleanup.startCleanup();
 
-  app.listen(config.server.httpPort, () => {
+  httpServer = app.listen(config.server.httpPort, () => {
     logger.info(`CCTV Web Client running on ${config.server.appUrl}`);
   });
 }

@@ -38,6 +38,46 @@ npm start
 | `npm start` | รัน production |
 | `npm run dev` | รันแบบ watch |
 | `npm run db:migrate` | สร้างตาราง + seed admin |
+| `npm run verify` | ตรวจโหลดโมดูลหลัก (smoke test) |
+
+## Docker
+
+```bash
+cp .env.example .env
+# แก้ไข .env
+
+docker compose up -d --build
+```
+
+บนเซิร์ฟเวอร์ที่มี PostgreSQL local ให้ตั้ง `DB_HOST=host.docker.internal` หรือ IP ของ host
+
+## Local Development (PostgreSQL บนเครื่อง dev)
+
+Remote DB (`ctb2.upz.in.th`) มักบล็อก IP เครื่อง dev ผ่าน `pg_hba.conf` — ใช้ Postgres local แทน:
+
+```bash
+# 1. เริ่ม Postgres ใน Docker (ถ้ามี Docker)
+docker compose -f docker-compose.dev.yml up -d
+
+# หรือใช้ PostgreSQL บนเครื่อง (ไม่ต้อง Docker):
+powershell -ExecutionPolicy Bypass -File scripts/setup-local-db.ps1
+
+# 2. ตั้งค่า DB ใน .env (ดู .env.local.example)
+#    DB_HOST=localhost
+#    DB_PORT=5433
+#    DB_PASSWORD=dev_local_password
+#    DB_SSL=false
+
+# 3. สร้างตาราง + admin
+npm run db:migrate
+
+# 4. รัน app
+npm start
+```
+
+Login ด้วย `ADMIN_USERNAME` / `ADMIN_PASSWORD` จาก `.env`
+
+หมายเหตุ: `401` บน `/api/auth/me` ก่อน login เป็นพฤติกรรมปกติ
 
 ## ความปลอดภัย
 

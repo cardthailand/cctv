@@ -5,8 +5,11 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
+    "start:local": "powershell -ExecutionPolicy Bypass -File scripts/start-local.ps1",
     "dev": "node --watch src/server.js",
     "db:migrate": "node src/db/migrate.js",
+    "db:setup-local": "powershell -ExecutionPolicy Bypass -File scripts/setup-local-db.ps1",
+    "verify": "node scripts/verify.js",
     "pack": "tar --exclude=node_modules --exclude=.env --exclude=recordings --exclude=.git -czf cctv-deploy.tar.gz ."
   },
   "engines": {
@@ -25,6 +28,7 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-local": "^1.0.0",
-    "pg": "^8.13.3"
+    "pg": "^8.13.3",
+    "ws": "^8.21.0"
   }
 }

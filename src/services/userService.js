@@ -144,17 +144,76 @@ async function setUserChannels(userId, channels, grantedBy) {
   }
 }
 
-async function getAuditLogs(limit = 100) {
+async function getAuditLogs({ limit = 100, action, username, from, to } = {}) {
+  const conditions = [];
+  const params = [];
+  let paramIndex = 1;
+
+  if (action) {
+    conditions.push(`a.action = $${paramIndex++}`);
+    params.push(action);
+  }
+  if (username) {
+    conditions.push(`u.username ILIKE $${paramIndex++}`);
+    params.push(`%${username}%`);
+  }
+  if (from) {
+    conditions.push(`a.created_at >= $${paramIndex++}`);
+    params.push(from);
+  }
+  if (to) {
+    conditions.push(`a.created_at <= $${paramIndex++}`);
+    params.push(to);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  params.push(limit);
+
   const result = await pool.query(
     `SELECT a.id, a.action, a.resource, a.ip_address, a.user_agent, a.metadata, a.created_at,
             u.username
      FROM audit_logs a
      LEFT JOIN users u ON u.id = a.user_id
+     ${where}
      ORDER BY a.created_at DESC
-     LIMIT $1`,
-    [limit]
+     LIMIT $${paramIndex}`,
+    params
   );
   return result.rows;
+}
+
+async function getUserChannelList(userId) {
+  const result = await pool.query(
+    'SELECT channel FROM user_channel_access WHERE user_id = $1 ORDER BY channel',
+    [userId]
+  );
+  return result.rows.map((row) => row.channel);
+}
+
+async function updateUserRole(userId, role) {
+  const result = await pool.query(
+    `UPDATE users SET role = $2, updated_at = NOW()
+     WHERE id = $1
+     RETURNING id`,
+    [userId, role]
+  );
+  if (!result.rows.length) {
+    throw new Error('User not found');
+  }
+  return findById(userId);
+}
+
+async function setUserActive(userId, isActive) {
+  const result = await pool.query(
+    `UPDATE users SET is_active = $2, updated_at = NOW()
+     WHERE id = $1
+     RETURNING id`,
+    [userId, isActive]
+  );
+  if (!result.rows.length) {
+    throw new Error('User not found');
+  }
+  return findById(userId);
 }
 
 module.exports = {
@@ -169,5 +228,8 @@ module.exports = {
   listUsers,
   createUser,
   setUserChannels,
+  getUserChannelList,
+  updateUserRole,
+  setUserActive,
   getAuditLogs,
 };

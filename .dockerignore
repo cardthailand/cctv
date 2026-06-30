@@ -1,0 +1,6 @@
+node_modules
+.env
+recordings
+.git
+*.tar.gz
+npm-debug.log*

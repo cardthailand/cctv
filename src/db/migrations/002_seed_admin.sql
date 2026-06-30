@@ -1,0 +1,3 @@
+-- Admin user is seeded by migrate.js using bcrypt hash from environment:
+-- ADMIN_USERNAME, ADMIN_PASSWORD, ADMIN_EMAIL
+-- (SQL cannot bcrypt; seed runs in Node after this migration marker.)

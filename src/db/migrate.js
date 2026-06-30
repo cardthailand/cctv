@@ -40,6 +40,7 @@ async function seedAdmin() {
 async function migrate() {
   try {
     await runMigration('001_init.sql');
+    await runMigration('002_seed_admin.sql');
     await seedAdmin();
     logger.info('Database migration completed');
     process.exit(0);

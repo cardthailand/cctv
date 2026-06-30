@@ -27,7 +27,9 @@ async function connectChannel(channel) {
     }
 
     const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = data.wsUrl || `${wsProtocol}//${location.hostname}:${data.wsPort}`;
+    const baseUrl = data.wsUrl || `${wsProtocol}//${location.hostname}:${data.wsPort}`;
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    const wsUrl = `${baseUrl}${separator}token=${encodeURIComponent(data.token)}`;
     const canvas = document.getElementById(`video-canvas-${channel}`);
     const client = new WebSocket(wsUrl);
 

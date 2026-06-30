@@ -7,6 +7,7 @@ const {
 } = require('../services/auditService');
 const userService = require('../services/userService');
 const { isGoogleOAuthEnabled } = require('../config');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
@@ -35,7 +36,15 @@ router.get('/me', (req, res) => {
 
 router.post('/login', async (req, res, next) => {
   const identifier = req.body?.username;
-  const failedCount = await countRecentFailedAttempts(identifier);
+
+  let failedCount = 0;
+  try {
+    failedCount = await countRecentFailedAttempts(identifier);
+  } catch (error) {
+    logger.error('Database unavailable during login', { message: error.message });
+    return res.status(503).json({ error: 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้' });
+  }
+
   if (failedCount >= 5) {
     return res.status(429).json({ error: 'ลองเข้าสู่ระบบมากเกินไป กรุณารอ 15 นาที' });
   }
@@ -43,20 +52,33 @@ router.post('/login', async (req, res, next) => {
   passport.authenticate('local', async (error, user, info) => {
     if (error) return next(error);
     if (!user) {
-      await logLoginAttempt(identifier, req.ip, false);
+      try {
+        await logLoginAttempt(identifier, req.ip, false);
+        await logAudit({
+          action: 'login_failed',
+          ...getClientMeta(req),
+          metadata: { reason: 'invalid_credentials', identifier },
+        });
+      } catch (auditError) {
+        logger.warn('Audit log failed on login_failed', { message: auditError.message });
+      }
       return res.status(401).json({ error: info?.message || 'เข้าสู่ระบบไม่สำเร็จ' });
     }
 
     req.logIn(user, async (loginError) => {
       if (loginError) return next(loginError);
-      await userService.updateLastLogin(user.id);
-      await logLoginAttempt(identifier, req.ip, true);
-      await logAudit({
-        userId: user.id,
-        action: 'login',
-        ...getClientMeta(req),
-        metadata: { method: 'local' },
-      });
+      try {
+        await userService.updateLastLogin(user.id);
+        await logLoginAttempt(identifier, req.ip, true);
+        await logAudit({
+          userId: user.id,
+          action: 'login',
+          ...getClientMeta(req),
+          metadata: { method: 'local' },
+        });
+      } catch (auditError) {
+        logger.warn('Audit log failed on login', { message: auditError.message });
+      }
       return res.json({ success: true, user });
     });
   })(req, res, next);

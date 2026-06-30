@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cctv-postgres-dev
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: cctv_db
+      POSTGRES_USER: cctv_db
+      POSTGRES_PASSWORD: dev_local_password
+    volumes:
+      - cctv_pg_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cctv_db -d cctv_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  cctv_pg_dev:

@@ -55,6 +55,52 @@ router.post('/users', async (req, res, next) => {
   }
 });
 
+router.put('/users/:id/role', async (req, res, next) => {
+  try {
+    const { role } = req.body;
+    if (!['admin', 'user', 'employee'].includes(role)) {
+      return res.status(400).json({ error: 'role ไม่ถูกต้อง' });
+    }
+    const user = await userService.updateUserRole(req.params.id, role);
+    await logAudit({
+      userId: req.user.id,
+      action: 'admin_update_role',
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+      metadata: { targetUserId: req.params.id, role },
+    });
+    res.json({ user });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/users/:id/active', async (req, res, next) => {
+  try {
+    const isActive = Boolean(req.body.isActive);
+    const user = await userService.setUserActive(req.params.id, isActive);
+    await logAudit({
+      userId: req.user.id,
+      action: isActive ? 'admin_activate_user' : 'admin_deactivate_user',
+      ipAddress: req.ip,
+      userAgent: req.get('user-agent'),
+      metadata: { targetUserId: req.params.id, isActive },
+    });
+    res.json({ user });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/users/:id/channels', async (req, res, next) => {
+  try {
+    const channels = await userService.getUserChannelList(req.params.id);
+    res.json({ channels });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.put('/users/:id/channels', async (req, res, next) => {
   try {
     const channels = Array.isArray(req.body.channels) ? req.body.channels : [];
@@ -72,9 +118,15 @@ router.put('/users/:id/channels', async (req, res, next) => {
   }
 });
 
-router.get('/audit-logs', async (_req, res, next) => {
+router.get('/audit-logs', async (req, res, next) => {
   try {
-    const logs = await userService.getAuditLogs(200);
+    const logs = await userService.getAuditLogs({
+      limit: parseInt(req.query.limit || '200', 10),
+      action: req.query.action || null,
+      username: req.query.username || null,
+      from: req.query.from || null,
+      to: req.query.to || null,
+    });
     res.json({ logs });
   } catch (error) {
     next(error);
