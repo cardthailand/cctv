@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCTV Monitor</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmpeg/0.2/jsmpeg.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <strong>CCTV Monitor</strong>
+      <span id="user-badge" class="badge"></span>
+    </div>
+    <div class="topbar-actions">
+      <a id="admin-link" href="/admin.html" style="display:none;">จัดการผู้ใช้</a>
+      <button class="btn btn-primary" style="width:auto;padding:8px 14px;" onclick="logout()">ออกจากระบบ</button>
+    </div>
+  </header>
+
+  <main id="camera-grid" class="grid-container"></main>
+
+  <button id="chat-fab" class="chat-fab" title="AI Chat" style="display:none;">💬</button>
+
+  <section id="chat-panel" class="chat-panel">
+    <div class="chat-header">ผู้ช่วยค้นหาภาพบันทึก</div>
+    <div id="chat-messages" class="chat-messages"></div>
+    <div class="chat-input-row">
+      <input id="chat-input" type="text" placeholder="ถามเรื่องช่องและเวลา...">
+      <button id="chat-send" class="btn btn-primary" style="width:auto;">ส่ง</button>
+    </div>
+  </section>
+
+  <div id="playback-modal" class="playback-modal">
+    <div class="playback-content">
+      <h3 id="playback-title">Playback</h3>
+      <video id="playback-video" controls></video>
+      <button class="btn btn-primary" style="width:auto;margin-top:12px;" onclick="closePlayback()">ปิด</button>
+    </div>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script src="/js/playback.js"></script>
+  <script src="/js/live-view.js"></script>
+  <script src="/js/chat-panel.js"></script>
+  <script>
+    let currentUser = null;
+
+    async function init() {
+      currentUser = await getCurrentUser();
+      if (!currentUser) return;
+
+      document.getElementById('user-badge').textContent =
+        `${currentUser.displayName || currentUser.username} (${currentUser.role})`;
+
+      if (currentUser.role === 'admin') {
+        document.getElementById('admin-link').style.display = 'inline';
+      }
+
+      initLiveView(currentUser.channels);
+      initChatPanel(currentUser);
+    }
+
+    init();
+  </script>
+</body>
+</html>

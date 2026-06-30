@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>เข้าสู่ระบบ - CCTV</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="login-page">
+  <div class="login-card">
+    <h1>CCTV Web Client</h1>
+    <p>เข้าสู่ระบบเพื่อดูกล้องวงจรปิด</p>
+
+    <div id="error-box" class="error-box"></div>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label for="username">ชื่อผู้ใช้</label>
+        <input id="username" name="username" type="text" required autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label for="password">รหัสผ่าน</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary" type="submit">เข้าสู่ระบบ</button>
+    </form>
+
+    <button id="google-login" class="btn btn-google" type="button" style="display:none;">
+      เข้าสู่ระบบด้วย Google
+    </button>
+  </div>
+
+  <script src="/js/auth.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('error') === 'oauth') {
+      showError('เข้าสู่ระบบด้วย Google ไม่สำเร็จ');
+    }
+
+    checkExistingSession();
+
+    document.getElementById('login-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      try {
+        await login(username, password);
+        window.location.href = '/index.html';
+      } catch (error) {
+        showError(error.message);
+      }
+    });
+
+    fetch('/api/auth/me')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.googleOAuthEnabled) {
+          const btn = document.getElementById('google-login');
+          btn.style.display = 'inline-flex';
+          btn.addEventListener('click', () => {
+            window.location.href = '/api/auth/google';
+          });
+        }
+      })
+      .catch(() => {});
+
+    function showError(message) {
+      const box = document.getElementById('error-box');
+      box.textContent = message;
+      box.style.display = 'block';
+    }
+  </script>
+</body>
+</html>

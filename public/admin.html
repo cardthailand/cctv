@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>จัดการผู้ใช้ - CCTV</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div><strong>Admin Panel</strong></div>
+    <div class="topbar-actions">
+      <a href="/index.html">กลับหน้าหลัก</a>
+      <button class="btn btn-primary" style="width:auto;padding:8px 14px;" onclick="logout()">ออกจากระบบ</button>
+    </div>
+  </header>
+
+  <main class="admin-layout">
+    <section class="card">
+      <h2>สร้างผู้ใช้ใหม่</h2>
+      <form id="create-user-form">
+        <div class="form-group">
+          <label>ชื่อผู้ใช้</label>
+          <input name="username" required>
+        </div>
+        <div class="form-group">
+          <label>อีเมล</label>
+          <input name="email" type="email">
+        </div>
+        <div class="form-group">
+          <label>รหัสผ่าน</label>
+          <input name="password" type="password" required>
+        </div>
+        <div class="form-group">
+          <label>บทบาท</label>
+          <select name="role">
+            <option value="employee">employee (พนักงาน)</option>
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>ช่องที่อนุญาต (สำหรับ employee)</label>
+          <input name="channels" placeholder="เช่น 1,2">
+        </div>
+        <button class="btn btn-primary" type="submit">สร้างผู้ใช้</button>
+      </form>
+      <p id="create-user-msg"></p>
+    </section>
+
+    <section class="card">
+      <h2>รายการผู้ใช้</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Active</th>
+            <th>Last Login</th>
+          </tr>
+        </thead>
+        <tbody id="users-table"></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <h2>Audit Logs (ล่าสุด)</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>เวลา</th>
+            <th>User</th>
+            <th>Action</th>
+            <th>Resource</th>
+          </tr>
+        </thead>
+        <tbody id="audit-table"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="/js/auth.js"></script>
+  <script>
+    async function initAdmin() {
+      const user = await getCurrentUser();
+      if (!user || user.role !== 'admin') {
+        window.location.href = '/index.html';
+        return;
+      }
+      await loadUsers();
+      await loadAuditLogs();
+    }
+
+    async function loadUsers() {
+      const res = await fetch('/api/admin/users');
+      const data = await res.json();
+      const tbody = document.getElementById('users-table');
+      tbody.innerHTML = data.users.map((u) => `
+        <tr>
+          <td>${u.username}</td>
+          <td>${u.role}</td>
+          <td>${u.isActive ? 'yes' : 'no'}</td>
+          <td>${u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('th-TH') : '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadAuditLogs() {
+      const res = await fetch('/api/admin/audit-logs');
+      const data = await res.json();
+      const tbody = document.getElementById('audit-table');
+      tbody.innerHTML = data.logs.map((log) => `
+        <tr>
+          <td>${new Date(log.created_at).toLocaleString('th-TH')}</td>
+          <td>${log.username || '-'}</td>
+          <td>${log.action}</td>
+          <td>${log.resource || '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('create-user-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = new FormData(event.target);
+      const channels = (form.get('channels') || '')
+        .split(',')
+        .map((v) => parseInt(v.trim(), 10))
+        .filter((v) => Number.isInteger(v));
+
+      const payload = {
+        username: form.get('username'),
+        email: form.get('email') || null,
+        password: form.get('password'),
+        role: form.get('role'),
+        channels,
+      };
+
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      document.getElementById('create-user-msg').textContent =
+        res.ok ? 'สร้างผู้ใช้สำเร็จ' : (data.error || 'สร้างผู้ใช้ไม่สำเร็จ');
+      if (res.ok) {
+        event.target.reset();
+        await loadUsers();
+      }
+    });
+
+    initAdmin();
+  </script>
+</body>
+</html>
