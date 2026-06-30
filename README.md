@@ -2,6 +2,8 @@
 
 ระบบดูกล้องวงจรปิด 4 ช่อง พร้อมบันทึกต่อเนื่อง, Login (Local + Google OAuth), RBAC และ AI Chat
 
+Repository: [github.com/cardthailand/cctv](https://github.com/cardthailand/cctv)
+
 ## ความต้องการ
 
 - Node.js 18+
@@ -102,7 +104,6 @@ bash scripts/install-on-server.sh
 - ตั้ง `USE_DIRECT_WS_PORT=false` ใน `.env` เพื่อใช้ WebSocket ผ่าน HTTPS proxy
 - ใช้ `DB_HOST=127.0.0.1` ถ้า PostgreSQL อยู่เครื่องเดียวกับ app
 - ต้องมี FFmpeg และการเข้าถึง RTSP กล้องจากเซิร์ฟเวอร์
-
 
 ### Database: `no pg_hba.conf entry for host`
 
